@@ -8,6 +8,7 @@
 
 #define BUFLEN 512
 #define PORT   2152
+#define PACKAGE_COUNTER_DELAY 5
 
 int count = 0;
 
@@ -23,9 +24,8 @@ void *package_count(void *data)
 {
     while(1)
     {
-        count++;
-        sleep(1);
-        printf("count=%d \n", count);
+        sleep(PACKAGE_COUNTER_DELAY);
+        printf("Total package count = %d \n", count);
 
     }
     return NULL;
@@ -39,8 +39,7 @@ int main(void) {
     int slen = sizeof(rcv);
 	char buf[BUFLEN];
 	
-	
-	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
+	if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
 	{
 		sys_exit("socket");
 	}
@@ -50,7 +49,6 @@ int main(void) {
 	rcv.sin_family = AF_INET;
 	rcv.sin_port = htons(PORT);
 	rcv.sin_addr.s_addr = htonl(INADDR_ANY);
-	
 	
 	if( bind(s , (struct sockaddr*)&rcv, sizeof(rcv) ) == -1)
 	{
@@ -67,6 +65,8 @@ int main(void) {
 		{
 			sys_exit("Message could not received!");
 		}
+
+        count++;
         printf("Received packet from %s:%d\n", inet_ntoa(rcv.sin_addr), ntohs(rcv.sin_port));
 		printf("Data: %s\n" , buf);
     }
