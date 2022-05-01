@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
-#define BUFLEN 512
+#define BUFLEN 1024
 #define PORT   2152
 #define PACKAGE_COUNTER_DELAY 5
 
@@ -32,25 +32,29 @@ void *package_count(void *data)
 }
 
 int main(void) {
+    
     pthread_t package_count_thread;
-    struct sockaddr_in rcv;
+    struct sockaddr_in server, client;
 	
-	int s, i, recv_len;
-    int slen = sizeof(rcv);
+	int fdClient, recv_len;
+    int slen = sizeof(server);
 	char buf[BUFLEN];
 	
-	if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
+    if ((fdClient = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
 	{
 		sys_exit("socket");
 	}
-	 
-	memset((char *) &rcv, 0, sizeof(rcv));
+ 
+	memset((char *) &client, 0, sizeof(client));
 	
-	rcv.sin_family = AF_INET;
-	rcv.sin_port = htons(PORT);
-	rcv.sin_addr.s_addr = htonl(INADDR_ANY);
+	client.sin_family = AF_INET;
+	client.sin_port = htons(PORT);
+	client.sin_addr.s_addr = htonl(INADDR_ANY);
 	
-	if( bind(s , (struct sockaddr*)&rcv, sizeof(rcv) ) == -1)
+    server.sin_family = AF_INET;
+    server.sin_port = htons(PORT);
+
+	if( bind(fdClient , (struct sockaddr*)&client, sizeof(client) ) == -1)
 	{
 		sys_exit("bind error\n");
 	}
@@ -59,16 +63,21 @@ int main(void) {
     
     while(1)
     {
-        printf("Data waiting\n");
-
-        if ((recv_len = recvfrom(s, buf, BUFLEN, 0, (struct sockaddr *) &rcv, &slen)) == -1)
+        //printf("Data waiting\n");
+        if ((recv_len = recvfrom(fdClient, buf, BUFLEN, 0, (struct sockaddr *) &client, &slen)) == -1)
 		{
 			sys_exit("Message could not received!");
 		}
 
-        count++;
-        printf("Received packet from %s:%d\n", inet_ntoa(rcv.sin_addr), ntohs(rcv.sin_port));
-		printf("Data: %s\n" , buf);
+        //printf("Received packet from %s:%d\n", inet_ntoa(server.sin_addr), ntohs(server.sin_port));
+        server.sin_addr = client.sin_addr;
+
+        if (sendto(fdClient, buf, recv_len, 0, (struct sockaddr*) &server, slen) == -1)
+		{
+			printf("Message could not send!\n");
+		}
+        ++count;
+        //printf("Message forwarded to %s:%d\n", inet_ntoa(server.sin_addr), ntohs(server.sin_port));
     }
 
     printf("Exiting from server program\n");
