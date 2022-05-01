@@ -8,7 +8,7 @@
 
 #define BUFLEN 1024
 #define PORT   2152
-#define PACKAGE_COUNTER_DELAY 5
+#define PACKAGE_COUNTER_DELAY 60
 
 int count = 0;
 
@@ -32,7 +32,7 @@ void *package_count(void *data)
 }
 
 int main(void) {
-    
+
     pthread_t package_count_thread;
     struct sockaddr_in server, client;
 	
