@@ -10,7 +10,7 @@
 #define PORT   2152
 #define PACKAGE_COUNTER_DELAY 60
 
-int count = 0;
+int count = 0, slen;
 
 void sys_exit(char *s)
 {
@@ -20,7 +20,7 @@ void sys_exit(char *s)
 
 /*This thread shows incoming package count
   on every one minute*/
-void *package_count(void *data)
+void *print_counter_func(void *data)
 {
     while(1)
     {
@@ -29,6 +29,18 @@ void *package_count(void *data)
 
     }
     return NULL;
+}
+
+/*This function listen server port, and it works blocking!*/
+ssize_t gtp_listen_func(int fd, char* buf, struct sockaddr_in* src) {
+
+    return recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)src, &slen);
+}
+
+/*This function send message to client*/
+ssize_t gtp_send_func(int fd, char* buf, size_t recv_len, struct sockaddr_in* dest) {
+
+    return sendto(fd, buf, recv_len, 0, (struct sockaddr*)dest, slen);
 }
 
 int main(void) {
@@ -59,12 +71,12 @@ int main(void) {
 		sys_exit("bind error\n");
 	}
 
-    pthread_create(&package_count_thread, NULL, package_count, NULL);
+    pthread_create(&package_count_thread, NULL, print_counter_func, NULL);
     
+    printf("Application started..\n");
     while(1)
-    {
-        //printf("Data waiting\n");
-        if ((recv_len = recvfrom(fdClient, buf, BUFLEN, 0, (struct sockaddr *) &client, &slen)) == -1)
+    {        
+        if ((recv_len = gtp_listen_func(fdClient, buf, &client)) == -1)
 		{
 			sys_exit("Message could not received!");
 		}
@@ -72,7 +84,7 @@ int main(void) {
         //printf("Received packet from %s:%d\n", inet_ntoa(server.sin_addr), ntohs(server.sin_port));
         server.sin_addr = client.sin_addr;
 
-        if (sendto(fdClient, buf, recv_len, 0, (struct sockaddr*) &server, slen) == -1)
+        if (gtp_send_func(fdClient, buf, recv_len, &server) == -1)
 		{
 			printf("Message could not send!\n");
 		}
