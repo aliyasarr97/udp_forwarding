@@ -32,15 +32,17 @@ void *print_counter_func(void *data)
 }
 
 /*This function listen server port, and it works blocking!*/
-ssize_t gtp_listen_func(int fd, char* buf, struct sockaddr_in* src) {
+ssize_t gtp_listen_func(int fd, struct msghdr* msg) {
 
-    return recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)src, &slen);
+    // return recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)src, &slen);
+    return recvmsg(fd, msg, MSG_WAITFORONE);
 }
 
 /*This function send message to client*/
-ssize_t gtp_send_func(int fd, char* buf, size_t recv_len, struct sockaddr_in* dest) {
+ssize_t gtp_send_func(int fd, struct msghdr* msg) {
 
-    return sendto(fd, buf, recv_len, 0, (struct sockaddr*)dest, slen);
+    // return sendto(fd, buf, recv_len, 0, (struct sockaddr*)dest, slen);
+    return sendmsg(fd, msg, 0);
 }
 
 int main(void) {
@@ -48,17 +50,31 @@ int main(void) {
     pthread_t package_count_thread;
     struct sockaddr_in server, client;
 	
+    struct iovec   iov[1];
+    struct msghdr  msg;
+
 	int fdClient, recv_len;
     int slen = sizeof(server);
-	char buf[BUFLEN];
-	
+	char buf[BUFLEN] = {0};
+
     if ((fdClient = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
 	{
 		sys_exit("socket");
 	}
- 
+    
 	memset((char *) &client, 0, sizeof(client));
 	
+    memset(&msg,   0, sizeof(msg));
+    memset(iov,    0, sizeof(iov));
+    
+    iov[0].iov_base = buf;
+    iov[0].iov_len  = sizeof(buf);
+
+    msg.msg_iov     = iov;
+    msg.msg_iovlen  = 1;
+    msg.msg_control   = buf;
+    msg.msg_controllen = sizeof(buf);
+
 	client.sin_family = AF_INET;
 	client.sin_port = htons(PORT);
 	client.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -76,15 +92,19 @@ int main(void) {
     printf("Application started..\n");
     while(1)
     {        
-        if ((recv_len = gtp_listen_func(fdClient, buf, &client)) == -1)
+        msg.msg_name  = &client;
+        msg.msg_namelen  = sizeof(client);
+        if ((recv_len = gtp_listen_func(fdClient, &msg)) == -1)
 		{
 			sys_exit("Message could not received!");
 		}
 
-        //printf("Received packet from %s:%d\n", inet_ntoa(server.sin_addr), ntohs(server.sin_port));
         server.sin_addr = client.sin_addr;
+        // printf("Received packet from %s:%d\n", inet_ntoa(server.sin_addr), ntohs(server.sin_port));
+        msg.msg_name  = &server;
+        msg.msg_namelen  = sizeof(server);
 
-        if (gtp_send_func(fdClient, buf, recv_len, &server) == -1)
+        if (gtp_send_func(fdClient, &msg) == -1)
 		{
 			printf("Message could not send!\n");
 		}
@@ -95,3 +115,4 @@ int main(void) {
     printf("Exiting from server program\n");
     return 0;
 }
+
