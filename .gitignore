@@ -1,3 +1,3 @@
-.vscode/tasks.json
+.vscode/*
 udp_forward
 .gitignore
